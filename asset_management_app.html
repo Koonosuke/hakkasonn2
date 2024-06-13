@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>資産管理アプリ</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .form-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            /* フォーム間のスペース */
+            flex-wrap: wrap;
+            /* 必要に応じて折り返し */
+            margin-bottom: 20px;
+        }
+
+        form {
+            margin: 20px auto;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            margin-right: 10px;
+            margin-bottom: 5px;
+        }
+
+        input, select {
+            padding: 5px;
+            margin: 10px 0;
+            width: calc(100% - 20px);
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #ce16c2;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #ce16c2;
+        }
+
+        table {
+            width: 80%;
+            max-width: 600px;
+            margin: 20px auto;
+            border-collapse: collapse;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        .charts-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .chart {
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        canvas {
+            width: 400px !important;
+            /* 表示サイズを設定 */
+            height: 400px !important;
+            /* 表示サイズを設定 */
+        }
+    </style>
+</head>
+
+<body>
+    <h1>資産管理アプリ</h1>
+
+    <!-- 収入・支出 -->
+    <div class="form-container">
+        <!-- 収入追加フォーム -->
+        <div class="col-sm-6">
+            <form id="incomeForm">
+                <label for="incomeName">収入名：</label>
+                <input type="text" id="incomeName" name="incomeName">
+                <label for="incomeAmount">金額：</label>
+                <input type="number" id="incomeAmount" name="incomeAmount">
+                <button type="button" onclick="addIncome()">収入を追加</button>
+            </form>
+        </div>
+
+        <!-- 支出追加フォーム -->
+        <div class="col-sm-6">
+            <form id="expenseForm">
+                <label for="expenseName">支出名：</label>
+                <input type="text" id="expenseName" name="expenseName">
+                <label for="expenseAmount">金額：</label>
+                <input type="number" id="expenseAmount" name="expenseAmount">
+                <label for="expenseType">タイプ：</label>
+                <select id="expenseType" name="expenseType">
+                    <option value="fixed">固定費</option>
+                    <option value="variable">変動費</option>
+                </select>
+                <button type="button" onclick="addExpense()">支出を追加</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 日付指定フォーム -->
+    <form id="dateForm">
+        <label for="date">日付：</label>
+        <input type="date" id="date" name="date">
+    </form>
+
+    <!-- 履歴表示 -->
+    <table id="history">
+        <tr>
+            <th>日付</th>
+            <th>名前</th>
+            <th>金額</th>
+            <th>タイプ</th>
+        </tr>
+    </table>
+
+    <!-- 合計金額表示 -->
+    <table id="sum">
+        <tr>
+            <th>合計収入</th>
+            <th>合計支出</th>
+            <th>収支</th>
+        </tr>
+        <tr>
+            <td id="totalIncome">¥0</td>
+            <td id="totalExpense">¥0</td>
+            <td id="balanceOfPayments">¥0</td>
+        </tr>
+    </table>
+
+    <!-- グラフ表示 -->
+    <div class="charts-container">
+        <div class="chart">
+            <h3>収入</h3>
+            <canvas id="incomeChart"></canvas>
+        </div>
+        <div class="chart">
+            <h3>支出</h3>
+            <canvas id="expenseChart"></canvas>
+        </div>
+        <div class="chart">
+            <h3>月ごとの収支</h3>
+            <canvas id="monthlyBalanceChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        var historyData = [];
+        var incomeChart = null;
+        var expenseChart = null;
+        var monthlyBalanceChart = null;
+
+        // 収入を追加する関数
+        function addIncome() {
+            var name = document.getElementById("incomeName").value;
+            var amount = parseFloat(document.getElementById("incomeAmount").value);
+            if (!isNaN(amount) && amount > 0) {
+                addTransaction(name, amount, 'income');
+                document.getElementById("incomeName").value = "";
+                document.getElementById("incomeAmount").value = "";
+            }
+        }
+
+        // 支出を追加する関数
+        function addExpense() {
+            var name = document.getElementById("expenseName").value;
+            var amount = parseFloat(document.getElementById("expenseAmount").value);
+            var type = document.getElementById("expenseType").value;
+            if (!isNaN(amount) && amount > 0) {
+                addTransaction(name, -amount, type);
+                document.getElementById("expenseName").value = "";
+                document.getElementById("expenseAmount").value = "";
+            }
+        }
+
+        // 取引を追加する共通関数
+        function addTransaction(name, amount, type) {
+            var dateInput = document.getElementById("date").value;
+            if (dateInput) {
+                var date = new Date(dateInput);
+                historyData.push({ date: date, name: name, amount: amount, type: type });
+                displayHistory();
+                updateGraphs();
+            } else {
+                alert("日付を指定してください。");
+            }
+        }
+
+        // 履歴を表示する関数
+        function displayHistory() {
+            var historyTable = document.getElementById("history");
+            historyTable.innerHTML = "<tr><th>日付</th><th>名前</th><th>金額</th><th>タイプ</th></tr>";
+            var totalIncome = 0;
+            var totalExpense = 0;
+
+            historyData.forEach(function (item) {
+                var row = document.createElement("tr");
+                var dateCell = document.createElement("td");
+                dateCell.textContent = item.date.toLocaleDateString();
+                var nameCell = document.createElement("td");
+                nameCell.textContent = item.name;
+                var amountCell = document.createElement("td");
+                amountCell.textContent = "¥" + item.amount.toLocaleString("ja-JP");
+                var typeCell = document.createElement("td");
+                typeCell.textContent = item.type === 'income' ? '収入' : (item.type === 'fixed' ? '固定費' : '変動費');
+
+                row.appendChild(dateCell);
+                row.appendChild(nameCell);
+                row.appendChild(amountCell);
+                row.appendChild(typeCell);
+                historyTable.appendChild(row);
+
+                // Calculate total income and expense
+                if (item.amount > 0 || item.type === 'income') {
+                    totalIncome += item.amount;
+                } else {
+                    totalExpense += -item.amount;
+                }
+            });
+
+                        // Update total and balance cells
+                        var totalIncomeCell = document.getElementById("totalIncome");
+            var totalExpenseCell = document.getElementById("totalExpense");
+            totalIncomeCell.textContent = "¥" + totalIncome.toLocaleString("ja-JP");
+            totalExpenseCell.textContent = "¥" + totalExpense.toLocaleString("ja-JP");
+
+            // Calculate and display balance
+            var balance = totalIncome - totalExpense;
+            var balanceCell = document.getElementById("balanceOfPayments");
+            balanceCell.textContent = "¥" + balance.toLocaleString("ja-JP");
+        }
+
+        // Define predefined colors for charts
+        var predefinedColors = [
+            'rgb(255, 99, 132)',    // Red
+            'rgb(54, 162, 235)',    // Blue
+            'rgb(255, 205, 86)',    // Yellow
+            'rgb(75, 192, 192)',    // Green
+            'rgb(153, 102, 255)',   // Purple
+            'rgb(255, 159, 64)',    // Orange
+            'rgb(255, 0, 0)',       // Red
+            'rgb(0, 255, 0)',       // Green
+            'rgb(0, 0, 255)',       // Blue
+            'rgb(128, 0, 128)'      // Purple
+        ];
+
+        // Update charts with data
+        function updateGraphs() {
+            var incomeLabels = [];
+            var incomeData = [];
+            var expenseLabels = [];
+            var expenseData = [];
+            var monthlyData = {};
+
+            // Process each transaction in historyData
+            historyData.forEach(function (item) {
+                var month = item.date.getFullYear() + "-" + ("0" + (item.date.getMonth() + 1)).slice(-2);
+
+                // Initialize monthlyData for the month if not already initialized
+                if (!monthlyData[month]) {
+                    monthlyData[month] = { income: 0, fixedExpense: 0, variableExpense: 0 };
+                }
+
+                // Determine whether the item is income or expense and update respective arrays and monthly data
+                if (item.amount > 0 || item.type === 'income') {
+                    incomeLabels.push(item.name);
+                    incomeData.push(item.amount);
+                    monthlyData[month].income += item.amount;
+                } else if (item.type === 'fixed') {
+                    expenseLabels.push(item.name);
+                    expenseData.push(-item.amount);
+                    monthlyData[month].fixedExpense += -item.amount;
+                } else if (item.type === 'variable') {
+                    expenseLabels.push(item.name);
+                    expenseData.push(-item.amount);
+                    monthlyData[month].variableExpense += -item.amount;
+                }
+            });
+
+            // Update income chart
+            var incomeCtx = document.getElementById('incomeChart').getContext('2d');
+            if (incomeChart) {
+                incomeChart.destroy();
+            }
+            incomeChart = new Chart(incomeCtx, {
+                type: 'pie',
+                data: {
+                    labels: incomeLabels,
+                    datasets: [{
+                        label: '収入',
+                        backgroundColor: predefinedColors.slice(0, incomeData.length),
+                        data: incomeData
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1
+                }
+            });
+
+            // Update expense chart
+            var expenseCtx = document.getElementById('expenseChart').getContext('2d');
+            if (expenseChart) {
+                expenseChart.destroy();
+            }
+            expenseChart = new Chart(expenseCtx, {
+                type: 'pie',
+                data: {
+                    labels: expenseLabels,
+                    datasets: [{
+                        label: '支出',
+                        backgroundColor: predefinedColors.slice(0, expenseData.length),
+                        data: expenseData
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1
+                }
+            });
+
+            // Prepare data for monthly balance chart
+            var monthlyLabels = Object.keys(monthlyData);
+            var monthlyIncomeData = monthlyLabels.map(month => monthlyData[month].income);
+            var monthlyFixedExpenseData = monthlyLabels.map(month => monthlyData[month].fixedExpense);
+            var monthlyVariableExpenseData = monthlyLabels.map(month => monthlyData[month].variableExpense);
+            var monthlyBalanceData = monthlyLabels.map(month => monthlyData[month].income - monthlyData[month].fixedExpense - monthlyData[month].variableExpense);
+
+            // Update monthly balance chart
+            var monthlyBalanceCtx = document.getElementById('monthlyBalanceChart').getContext('2d');
+            if (monthlyBalanceChart) {
+                monthlyBalanceChart.destroy();
+            }
+            monthlyBalanceChart = new Chart(monthlyBalanceCtx, {
+                type: 'bar',
+                data: {
+                    labels: monthlyLabels,
+                    datasets: [
+                        {
+                            label: '収入',
+                            backgroundColor: 'rgb(75, 192, 192)',
+                            data: monthlyIncomeData
+                        },
+                        {
+                            label: '固定費',
+                            backgroundColor: 'rgb(255, 99, 132)',
+                            data: monthlyFixedExpenseData
+                        },
+                        {
+                            label: '変動費',
+                            backgroundColor: 'rgb(54, 162, 235)',
+                            data: monthlyVariableExpenseData
+                        },
+                        {
+                            label: '収支',
+                            backgroundColor: 'rgb(255, 205, 86)',
+                            data: monthlyBalanceData
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function (value) {
+                                    return '¥' + value.toLocaleString("ja-JP");
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>
+
