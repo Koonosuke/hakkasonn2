@@ -1,27 +1,26 @@
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
-const path = require('path');
 
 const app = express();
 const port = 3000;
 
 const pool = new Pool({
-  user: 'asset_user',
-  host: 'localhost',
-  database: 'asset_management',
-  password: 'asset_password',
-  port: 5432,
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_DATABASE,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
 });
 
 app.use(bodyParser.json());
 
-// 静的ファイルを提供
-app.use(express.static(path.join(__dirname, 'public')));
+// 静的ファイルの提供
+app.use(express.static('public'));
 
-// ユーザー登録エンドポイント
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -36,14 +35,13 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// ユーザーログインエンドポイント
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   try {
     const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
     const user = result.rows[0];
     if (user && (await bcrypt.compare(password, user.password))) {
-      const token = jwt.sign({ id: user.id, username: user.username }, 'secret_key');
+      const token = jwt.sign({ id: user.id, username: user.username }, process.env.SECRET_KEY);
       res.json({ token });
     } else {
       res.status(400).json({ error: 'Invalid credentials' });
@@ -53,11 +51,10 @@ app.post('/login', async (req, res) => {
   }
 });
 
-// 取引追加エンドポイント
 app.post('/transactions', async (req, res) => {
   const { token, date, name, amount, type } = req.body;
   try {
-    const decoded = jwt.verify(token, 'secret_key');
+    const decoded = jwt.verify(token, process.env.SECRET_KEY);
     const userId = decoded.id;
     const result = await pool.query(
       'INSERT INTO transactions (user_id, date, name, amount, type) VALUES ($1, $2, $3, $4, $5) RETURNING *',
@@ -69,11 +66,10 @@ app.post('/transactions', async (req, res) => {
   }
 });
 
-// 取引取得エンドポイント
 app.get('/transactions', async (req, res) => {
   const { token } = req.query;
   try {
-    const decoded = jwt.verify(token, 'secret_key');
+    const decoded = jwt.verify(token, process.env.SECRET_KEY);
     const userId = decoded.id;
     const result = await pool.query('SELECT * FROM transactions WHERE user_id = $1', [userId]);
     res.json(result.rows);

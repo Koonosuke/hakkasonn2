@@ -161,8 +161,7 @@
             <button type="button" class="btn btn-secondary" onclick="filterHistory()">フィルター</button>
         </form>
 
-        <!-- データエクスポート/インポート -->
-        <button type="button" class="btn btn-secondary" onclick="exportData()">データをエクスポート</button>
+        <!-- データインポート -->
         <input type="file" id="importFile" name="importFile" class="form-control-file mt-3" onchange="importData()">
         <select id="languageSelect" class="form-control mt-3" onchange="changeLanguage()">
             <option value="ja">日本語</option>
@@ -306,7 +305,7 @@
         // 履歴を表示する関数
         function displayHistory() {
             var historyTable = document.getElementById("history");
-            historyTable.innerHTML = "<tr><th>日付</th><th>名前</th><th>金額</th><th>タイプ</th></tr>";
+            historyTable.innerHTML = "";
             var totalIncome = 0;
             var totalExpense = 0;
 
@@ -347,7 +346,16 @@
             balanceCell.textContent = "¥" + balance.toLocaleString("ja-JP");
         }
 
-        // Update charts with data
+        // 定義された色を使用してチャートを更新
+        var predefinedColors = [
+            'rgb(255, 99, 132)',    // Red
+            'rgb(54, 162, 235)',    // Blue
+            'rgb(255, 205, 86)',    // Yellow
+            'rgb(75, 192, 192)',    // Green
+            'rgb(153, 102, 255)',   // Purple
+            'rgb(255, 159, 64)',    // Orange
+        ];
+
         function updateGraphs() {
             var incomeLabels = [];
             var incomeData = [];
@@ -355,16 +363,13 @@
             var expenseData = [];
             var monthlyData = {};
 
-            // Process each transaction in historyData
             historyData.forEach(function (item) {
-                var month = item.date.split("-").slice(0, 2).join("-");
+                var month = item.date.split('-').slice(0, 2).join('-');
 
-                // Initialize monthlyData for the month if not already initialized
                 if (!monthlyData[month]) {
                     monthlyData[month] = { income: 0, fixedExpense: 0, variableExpense: 0 };
                 }
 
-                // Determine whether the item is income or expense and update respective arrays and monthly data
                 if (item.amount > 0 || item.type === 'income') {
                     incomeLabels.push(item.name);
                     incomeData.push(item.amount);
@@ -380,7 +385,6 @@
                 }
             });
 
-            // Update income chart
             var incomeCtx = document.getElementById('incomeChart').getContext('2d');
             if (incomeChart) {
                 incomeChart.destroy();
@@ -398,18 +402,16 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
-                    aspectRatio: 1,
                     plugins: {
                         tooltip: {
-                            enabled: true,
                             callbacks: {
                                 label: function(context) {
                                     var label = context.label || '';
                                     if (label) {
                                         label += ': ';
                                     }
-                                    if (context.parsed !== null) {
-                                        label += '¥' + context.parsed.toLocaleString("ja-JP");
+                                    if (context.raw !== null) {
+                                        label += '¥' + context.raw.toLocaleString("ja-JP");
                                     }
                                     return label;
                                 }
@@ -419,7 +421,6 @@
                 }
             });
 
-            // Update expense chart
             var expenseCtx = document.getElementById('expenseChart').getContext('2d');
             if (expenseChart) {
                 expenseChart.destroy();
@@ -437,18 +438,16 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
-                    aspectRatio: 1,
                     plugins: {
                         tooltip: {
-                            enabled: true,
                             callbacks: {
                                 label: function(context) {
                                     var label = context.label || '';
                                     if (label) {
                                         label += ': ';
                                     }
-                                    if (context.parsed !== null) {
-                                        label += '¥' + context.parsed.toLocaleString("ja-JP");
+                                    if (context.raw !== null) {
+                                        label += '¥' + context.raw.toLocaleString("ja-JP");
                                     }
                                     return label;
                                 }
@@ -458,14 +457,12 @@
                 }
             });
 
-            // Prepare data for monthly balance chart
             var monthlyLabels = Object.keys(monthlyData);
             var monthlyIncomeData = monthlyLabels.map(month => monthlyData[month].income);
             var monthlyFixedExpenseData = monthlyLabels.map(month => monthlyData[month].fixedExpense);
             var monthlyVariableExpenseData = monthlyLabels.map(month => monthlyData[month].variableExpense);
             var monthlyBalanceData = monthlyLabels.map(month => monthlyData[month].income - monthlyData[month].fixedExpense - monthlyData[month].variableExpense);
 
-            // Update monthly balance chart
             var monthlyBalanceCtx = document.getElementById('monthlyBalanceChart').getContext('2d');
             if (monthlyBalanceChart) {
                 monthlyBalanceChart.destroy();
@@ -512,15 +509,14 @@
                     },
                     plugins: {
                         tooltip: {
-                            enabled: true,
                             callbacks: {
                                 label: function(context) {
                                     var label = context.dataset.label || '';
                                     if (label) {
                                         label += ': ';
                                     }
-                                    if (context.parsed.y !== null) {
-                                        label += '¥' + context.parsed.y.toLocaleString("ja-JP");
+                                    if (context.raw !== null) {
+                                        label += '¥' + context.raw.toLocaleString("ja-JP");
                                     }
                                     return label;
                                 }
@@ -546,7 +542,7 @@
 
         function displayFilteredHistory(filteredData) {
             var historyTable = document.getElementById("history");
-            historyTable.innerHTML = "<tr><th>日付</th><th>名前</th><th>金額</th><th>タイプ</th></tr>";
+            historyTable.innerHTML = "";
             var totalIncome = 0;
             var totalExpense = 0;
 
@@ -581,20 +577,6 @@
             var balance = totalIncome - totalExpense;
             var balanceCell = document.getElementById("balanceOfPayments");
             balanceCell.textContent = "¥" + balance.toLocaleString("ja-JP");
-        }
-
-        // データエクスポート関数
-        function exportData() {
-            var csvContent = "data:text/csv;charset=utf-8," + historyData.map(function (item) {
-                return [item.date.split('T')[0], item.name, item.amount, item.type].join(",");
-            }).join("\n");
-            var encodedUri = encodeURI(csvContent);
-            var link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "history_data.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
         }
 
         // データインポート関数
