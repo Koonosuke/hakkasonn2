@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>資産管理アプリ</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        .chart-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center my-4">資産管理アプリ</h1>
+
+        <!-- ユーザー登録フォーム -->
+        <div class="row">
+            <div class="col-md-6">
+                <h3>ユーザー登録</h3>
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label for="registerUsername">ユーザー名：</label>
+                        <input type="text" id="registerUsername" name="registerUsername" class="form-control" placeholder="ユーザー名">
+                    </div>
+                    <div class="form-group">
+                        <label for="registerPassword">パスワード：</label>
+                        <input type="password" id="registerPassword" name="registerPassword" class="form-control" placeholder="パスワード">
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="registerUser()">登録</button>
+                </form>
+            </div>
+
+            <!-- ユーザーログインフォーム -->
+            <div class="col-md-6">
+                <h3>ログイン</h3>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="loginUsername">ユーザー名：</label>
+                        <input type="text" id="loginUsername" name="loginUsername" class="form-control" placeholder="ユーザー名">
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">パスワード：</label>
+                        <input type="password" id="loginPassword" name="loginPassword" class="form-control" placeholder="パスワード">
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="loginUser()">ログイン</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 収入・支出 -->
+        <div class="form-container my-4">
+            <!-- 収入追加フォーム -->
+            <div class="col-sm-6">
+                <form id="incomeForm">
+                    <label for="incomeName">収入名：</label>
+                    <input type="text" id="incomeName" name="incomeName" class="form-control" placeholder="例：給料">
+                    <label for="incomeAmount">金額：</label>
+                    <input type="number" id="incomeAmount" name="incomeAmount" class="form-control" placeholder="例：50000">
+                    <button type="button" class="btn btn-success mt-2" onclick="addIncome()">収入を追加</button>
+                </form>
+            </div>
+
+            <!-- 支出追加フォーム -->
+            <div class="col-sm-6">
+                <form id="expenseForm">
+                    <label for="expenseName">支出名：</label>
+                    <input type="text" id="expenseName" name="expenseName" class="form-control" placeholder="例：食費">
+                    <label for="expenseAmount">金額：</label>
+                    <input type="number" id="expenseAmount" name="expenseAmount" class="form-control" placeholder="例：3000">
+                    <label for="expenseType">タイプ：</label>
+                    <select id="expenseType" name="expenseType" class="form-control">
+                        <option value="fixed">固定費</option>
+                        <option value="variable">変動費</option>
+                    </select>
+                    <button type="button" class="btn btn-danger mt-2" onclick="addExpense()">支出を追加</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 日付指定フォーム -->
+        <form id="dateForm">
+            <div class="form-group">
+                <label for="date">日付：</label>
+                <input type="date" id="date" name="date" class="form-control">
+            </div>
+        </form>
+
+        <!-- 履歴表示 -->
+        <table class="table table-striped mt-4">
+            <thead>
+                <tr>
+                    <th>日付</th>
+                    <th>名前</th>
+                    <th>金額</th>
+                    <th>タイプ</th>
+                </tr>
+            </thead>
+            <tbody id="history">
+                <!-- ここに取引履歴が表示されます -->
+            </tbody>
+        </table>
+
+        <!-- 合計金額表示 -->
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>合計収入</th>
+                    <th>合計支出</th>
+                    <th>収支</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td id="totalIncome">¥0</td>
+                    <td id="totalExpense">¥0</td>
+                    <td id="balanceOfPayments">¥0</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- グラフ表示 -->
+        <div class="charts-container">
+            <div class="chart">
+                <h3 class="text-center">収入</h3>
+                <canvas id="incomeChart"></canvas>
+            </div>
+            <div class="chart">
+                <h3 class="text-center">支出</h3>
+                <canvas id="expenseChart"></canvas>
+            </div>
+            <div class="chart">
+                <h3 class="text-center">月ごとの収支</h3>
+                <canvas id="monthlyBalanceChart"></canvas>
+            </div>
+        </div>
+
+        <!-- フィルターフォーム -->
+        <form id="filterForm" class="form-inline my-4">
+            <div class="form-group mr-2">
+                <label for="filterDate">日付：</label>
+                <input type="date" id="filterDate" name="filterDate" class="form-control ml-2">
+            </div>
+            <div class="form-group mr-2">
+                <label for="filterCategory">カテゴリ：</label>
+                <input type="text" id="filterCategory" name="filterCategory" class="form-control ml-2" placeholder="例：食費">
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="filterHistory()">フィルター</button>
+        </form>
+
+        <!-- データエクスポート/インポート -->
+        <button type="button" class="btn btn-secondary" onclick="exportData()">データをエクスポート</button>
+        <input type="file" id="importFile" name="importFile" class="form-control-file mt-3" onchange="importData()">
+        <select id="languageSelect" class="form-control mt-3" onchange="changeLanguage()">
+            <option value="ja">日本語</option>
+            <option value="en">English</option>
+        </select>
+    </div>
+
+    <script>
+        var historyData = [];
+        var incomeChart = null;
+        var expenseChart = null;
+        var monthlyBalanceChart = null;
+        var token = null;
+
+        // ユーザー登録
+        function registerUser() {
+            var username = document.getElementById("registerUsername").value;
+            var password = document.getElementById("registerPassword").value;
+
+            fetch('/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username: username, password: password }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('登録に失敗しました: ' + data.error);
+                } else {
+                    alert('登録が成功しました');
+                }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+
+        // ユーザーログイン
+        function loginUser() {
+            var username = document.getElementById("loginUsername").value;
+            var password = document.getElementById("loginPassword").value;
+
+            fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username: username, password: password }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('ログインに失敗しました: ' + data.error);
+                } else {
+                    alert('ログインが成功しました');
+                    token = data.token;
+                    loadTransactions();
+                }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+
+        // 収入を追加する関数
+        function addIncome() {
+            var name = document.getElementById("incomeName").value;
+            var amount = parseFloat(document.getElementById("incomeAmount").value);
+            if (!isNaN(amount) && amount > 0) {
+                addTransaction(name, amount, 'income');
+                document.getElementById("incomeName").value = "";
+                document.getElementById("incomeAmount").value = "";
+            }
+        }
+
+        // 支出を追加する関数
+        function addExpense() {
+            var name = document.getElementById("expenseName").value;
+            var amount = parseFloat(document.getElementById("expenseAmount").value);
+            var type = document.getElementById("expenseType").value;
+            if (!isNaN(amount) && amount > 0) {
+                addTransaction(name, -amount, type);
+                document.getElementById("expenseName").value = "";
+                document.getElementById("expenseAmount").value = "";
+            }
+        }
+
+        // 取引を追加する共通関数
+        function addTransaction(name, amount, type) {
+            var dateInput = document.getElementById("date").value;
+            if (dateInput) {
+                var date = new Date(dateInput);
+
+                fetch('/transactions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ token: token, date: date.toISOString().split('T')[0], name: name, amount: amount, type: type }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('取引の追加に失敗しました: ' + data.error);
+                    } else {
+                        historyData.push(data);
+                        displayHistory();
+                        updateGraphs();
+                    }
+                })
+                .catch((error) => {
+                    console.error('Error:', error);
+                });
+            } else {
+                alert("日付を指定してください。");
+            }
+        }
+
+        // 取引をロードする関数
+        function loadTransactions() {
+            fetch('/transactions?token=' + token, {
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                historyData = data;
+                displayHistory();
+                updateGraphs();
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+
+        // 履歴を表示する関数
+        function displayHistory() {
+            var historyTable = document.getElementById("history");
+            historyTable.innerHTML = "<tr><th>日付</th><th>名前</th><th>金額</th><th>タイプ</th></tr>";
+            var totalIncome = 0;
+            var totalExpense = 0;
+
+            historyData.forEach(function (item) {
+                var row = document.createElement("tr");
+                var dateCell = document.createElement("td");
+                dateCell.textContent = new Date(item.date).toLocaleDateString();
+                var nameCell = document.createElement("td");
+                nameCell.textContent = item.name;
+                var amountCell = document.createElement("td");
+                amountCell.textContent = "¥" + item.amount.toLocaleString("ja-JP");
+                var typeCell = document.createElement("td");
+                typeCell.textContent = item.type === 'income' ? '収入' : (item.type === 'fixed' ? '固定費' : '変動費');
+
+                row.appendChild(dateCell);
+                row.appendChild(nameCell);
+                row.appendChild(amountCell);
+                row.appendChild(typeCell);
+                historyTable.appendChild(row);
+
+                // Calculate total income and expense
+                if (item.amount > 0 || item.type === 'income') {
+                    totalIncome += item.amount;
+                } else {
+                    totalExpense += -item.amount;
+                }
+            });
+
+            // Update total and balance cells
+            var totalIncomeCell = document.getElementById("totalIncome");
+            var totalExpenseCell = document.getElementById("totalExpense");
+            totalIncomeCell.textContent = "¥" + totalIncome.toLocaleString("ja-JP");
+            totalExpenseCell.textContent = "¥" + totalExpense.toLocaleString("ja-JP");
+
+            // Calculate and display balance
+            var balance = totalIncome - totalExpense;
+            var balanceCell = document.getElementById("balanceOfPayments");
+            balanceCell.textContent = "¥" + balance.toLocaleString("ja-JP");
+        }
+
+        // Update charts with data
+        function updateGraphs() {
+            var incomeLabels = [];
+            var incomeData = [];
+            var expenseLabels = [];
+            var expenseData = [];
+            var monthlyData = {};
+
+            // Process each transaction in historyData
+            historyData.forEach(function (item) {
+                var month = item.date.split("-").slice(0, 2).join("-");
+
+                // Initialize monthlyData for the month if not already initialized
+                if (!monthlyData[month]) {
+                    monthlyData[month] = { income: 0, fixedExpense: 0, variableExpense: 0 };
+                }
+
+                // Determine whether the item is income or expense and update respective arrays and monthly data
+                if (item.amount > 0 || item.type === 'income') {
+                    incomeLabels.push(item.name);
+                    incomeData.push(item.amount);
+                    monthlyData[month].income += item.amount;
+                } else if (item.type === 'fixed') {
+                    expenseLabels.push(item.name);
+                    expenseData.push(-item.amount);
+                    monthlyData[month].fixedExpense += -item.amount;
+                } else if (item.type === 'variable') {
+                    expenseLabels.push(item.name);
+                    expenseData.push(-item.amount);
+                    monthlyData[month].variableExpense += -item.amount;
+                }
+            });
+
+            // Update income chart
+            var incomeCtx = document.getElementById('incomeChart').getContext('2d');
+            if (incomeChart) {
+                incomeChart.destroy();
+            }
+            incomeChart = new Chart(incomeCtx, {
+                type: 'pie',
+                data: {
+                    labels: incomeLabels,
+                    datasets: [{
+                        label: '収入',
+                        backgroundColor: predefinedColors.slice(0, incomeData.length),
+                        data: incomeData
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1,
+                    plugins: {
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                label: function(context) {
+                                    var label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += '¥' + context.parsed.toLocaleString("ja-JP");
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Update expense chart
+            var expenseCtx = document.getElementById('expenseChart').getContext('2d');
+            if (expenseChart) {
+                expenseChart.destroy();
+            }
+            expenseChart = new Chart(expenseCtx, {
+                type: 'pie',
+                data: {
+                    labels: expenseLabels,
+                    datasets: [{
+                        label: '支出',
+                        backgroundColor: predefinedColors.slice(0, expenseData.length),
+                        data: expenseData
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1,
+                    plugins: {
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                label: function(context) {
+                                    var label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += '¥' + context.parsed.toLocaleString("ja-JP");
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Prepare data for monthly balance chart
+            var monthlyLabels = Object.keys(monthlyData);
+            var monthlyIncomeData = monthlyLabels.map(month => monthlyData[month].income);
+            var monthlyFixedExpenseData = monthlyLabels.map(month => monthlyData[month].fixedExpense);
+            var monthlyVariableExpenseData = monthlyLabels.map(month => monthlyData[month].variableExpense);
+            var monthlyBalanceData = monthlyLabels.map(month => monthlyData[month].income - monthlyData[month].fixedExpense - monthlyData[month].variableExpense);
+
+            // Update monthly balance chart
+            var monthlyBalanceCtx = document.getElementById('monthlyBalanceChart').getContext('2d');
+            if (monthlyBalanceChart) {
+                monthlyBalanceChart.destroy();
+            }
+            monthlyBalanceChart = new Chart(monthlyBalanceCtx, {
+                type: 'bar',
+                data: {
+                    labels: monthlyLabels,
+                    datasets: [
+                        {
+                            label: '収入',
+                            backgroundColor: 'rgb(75, 192, 192)',
+                            data: monthlyIncomeData
+                        },
+                        {
+                            label: '固定費',
+                            backgroundColor: 'rgb(255, 99, 132)',
+                            data: monthlyFixedExpenseData
+                        },
+                        {
+                            label: '変動費',
+                            backgroundColor: 'rgb(54, 162, 235)',
+                            data: monthlyVariableExpenseData
+                        },
+                        {
+                            label: '収支',
+                            backgroundColor: 'rgb(255, 205, 86)',
+                            data: monthlyBalanceData
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '¥' + value.toLocaleString("ja-JP");
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                label: function(context) {
+                                    var label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += '¥' + context.parsed.y.toLocaleString("ja-JP");
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // フィルタリング関数
+        function filterHistory() {
+            var filterDate = document.getElementById("filterDate").value;
+            var filterCategory = document.getElementById("filterCategory").value;
+            var filteredData = historyData.filter(function (item) {
+                var dateMatch = filterDate ? item.date.split('T')[0] === filterDate : true;
+                var categoryMatch = filterCategory ? item.name.includes(filterCategory) : true;
+                return dateMatch && categoryMatch;
+            });
+
+            displayFilteredHistory(filteredData);
+        }
+
+        function displayFilteredHistory(filteredData) {
+            var historyTable = document.getElementById("history");
+            historyTable.innerHTML = "<tr><th>日付</th><th>名前</th><th>金額</th><th>タイプ</th></tr>";
+            var totalIncome = 0;
+            var totalExpense = 0;
+
+            filteredData.forEach(function (item) {
+                var row = document.createElement("tr");
+                var dateCell = document.createElement("td");
+                dateCell.textContent = new Date(item.date).toLocaleDateString();
+                var nameCell = document.createElement("td");
+                nameCell.textContent = item.name;
+                var amountCell = document.createElement("td");
+                amountCell.textContent = "¥" + item.amount.toLocaleString("ja-JP");
+                var typeCell = document.createElement("td");
+                typeCell.textContent = item.type === 'income' ? '収入' : (item.type === 'fixed' ? '固定費' : '変動費');
+
+                row.appendChild(dateCell);
+                row.appendChild(nameCell);
+                row.appendChild(amountCell);
+                row.appendChild(typeCell);
+                historyTable.appendChild(row);
+
+                if (item.amount > 0 || item.type === 'income') {
+                    totalIncome += item.amount;
+                } else {
+                    totalExpense += -item.amount;
+                }
+            });
+
+            var totalIncomeCell = document.getElementById("totalIncome");
+            var totalExpenseCell = document.getElementById("totalExpense");
+            totalIncomeCell.textContent = "¥" + totalIncome.toLocaleString("ja-JP");
+            totalExpenseCell.textContent = "¥" + totalExpense.toLocaleString("ja-JP");
+            var balance = totalIncome - totalExpense;
+            var balanceCell = document.getElementById("balanceOfPayments");
+            balanceCell.textContent = "¥" + balance.toLocaleString("ja-JP");
+        }
+
+        // データエクスポート関数
+        function exportData() {
+            var csvContent = "data:text/csv;charset=utf-8," + historyData.map(function (item) {
+                return [item.date.split('T')[0], item.name, item.amount, item.type].join(",");
+            }).join("\n");
+            var encodedUri = encodeURI(csvContent);
+            var link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "history_data.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // データインポート関数
+        function importData() {
+            var fileInput = document.getElementById("importFile");
+            var file = fileInput.files[0];
+            var reader = new FileReader();
+            reader.onload = function (event) {
+                var csvData = event.target.result;
+                var rows = csvData.split("\n");
+                rows.forEach(function (row) {
+                    var columns = row.split(",");
+                    if (columns.length === 4) {
+                        var date = new Date(columns[0]);
+                        var name = columns[1];
+                        var amount = parseFloat(columns[2]);
+                        var type = columns[3];
+                        if (!isNaN(amount)) {
+                            historyData.push({ date: date, name: name, amount: amount, type: type });
+                        }
+                    }
+                });
+                displayHistory();
+                updateGraphs();
+            };
+            reader.readAsText(file);
+        }
+
+        // 言語変更関数
+        var translations = {
+            ja: {
+                title: "資産管理アプリ",
+                income: "収入",
+                expense: "支出",
+                balance: "収支",
+                addIncome: "収入を追加",
+                addExpense: "支出を追加"
+            },
+            en: {
+                title: "Asset Management App",
+                income: "Income",
+                expense: "Expense",
+                balance: "Balance",
+                addIncome: "Add Income",
+                addExpense: "Add Expense"
+            }
+        };
+
+        function changeLanguage() {
+            var selectedLanguage = document.getElementById("languageSelect").value;
+            document.title = translations[selectedLanguage].title;
+            document.querySelector("h1").textContent = translations[selectedLanguage].title;
+            document.querySelectorAll("label[for='incomeName']").forEach(function(label) {
+                label.textContent = translations[selectedLanguage].income + " Name:";
+            });
+            document.querySelectorAll("label[for='expenseName']").forEach(function(label) {
+                label.textContent = translations[selectedLanguage].expense + " Name:";
+            });
+            document.querySelectorAll("button").forEach(function(button) {
+                if (button.textContent.includes("収入を追加")) {
+                    button.textContent = translations[selectedLanguage].addIncome;
+                } else if (button.textContent.includes("支出を追加")) {
+                    button.textContent = translations[selectedLanguage].addExpense;
+                }
+            });
+        }
+
+        changeLanguage();
+    </script>
+</body>
+</html>
